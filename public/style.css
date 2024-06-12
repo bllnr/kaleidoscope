@@ -22,7 +22,6 @@
     --gradient: .25turn, var(--g0), var(--g1), var(--g2), var(--g3), var(--g4), var(--g5), var(--g6), var(--g7);
     --gradient-reverse: .25turn, var(--g0), var(--g1), var(--g2), var(--g3), var(--g4), var(--g5), var(--g6), var(--g7);
 }
-  
 
 body{
     display: flex;
@@ -33,6 +32,11 @@ body{
 
 button {
     margin: 4px;
+}
+
+#sketch-container {
+    width: 100vmin; /*% of the smallest side of the viewport*/
+    height: 100vmin;
 }
 
 #topContainer {
