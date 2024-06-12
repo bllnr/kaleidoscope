@@ -1,0 +1,111 @@
+:root {
+    --random-btn-hue: 180;
+    --random-btn-saturation: 3%;
+    --random-btn-lightness: 92%;
+    --random-btn-hsl: hsl(var(--random-btn-hue), var(--random-btn-saturation), var(--random-btn-lightness));
+
+    --button-hover-color: hsl(180, 7%, 92%);
+    --button-active-color: hsl(180, 20%, 90%);
+    --button-border-radius: 4px;
+    --button-border: .75px solid hsl(180, 2%, 50%);
+    --button-background-color: hsl(180, 2%, 97%);
+    --button-padding: 4px;
+    
+    --g0: #ff6666;
+    --g1: #c9d366;
+    --g2: #92ffa8;
+    --g3: #6bf4ff;
+    --g4: #87bdff;
+    --g5: #a287ff;
+    --g6: #c866d3;
+    --g7: #ff6666;
+    --gradient: .25turn, var(--g0), var(--g1), var(--g2), var(--g3), var(--g4), var(--g5), var(--g6), var(--g7);
+    --gradient-reverse: .25turn, var(--g0), var(--g1), var(--g2), var(--g3), var(--g4), var(--g5), var(--g6), var(--g7);
+}
+  
+
+body{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+}
+
+button {
+    margin: 4px;
+}
+
+#topContainer {
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+}
+
+#canvas {
+    padding: 10px;
+}
+
+#controlsContainer {
+    padding: 10px;
+}
+
+#controlsContainer > * {
+    padding: 10px;
+}
+
+#colorControlsContainer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#symmetryControlsContainer > * {
+    padding: 4px;
+}
+
+#brushControlsContainer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#brushControlsContainer > * {
+    padding: 4px;
+}
+
+#fileControlsContainer {
+    display: flex;
+    justify-content: space-between;
+}
+
+button {
+    background-color: var(--button-background-color);
+    border: var(--button-border);
+    border-radius: var(--button-border-radius);
+    padding: var(--button-padding);
+}
+
+button:hover{
+    background-color: var(--button-hover-color);
+}
+
+button:active{
+    background-color: var(--button-active-color);
+}
+
+.colorIndicator {
+    width: 28px;
+    height: 28px;
+    border: 0.75px solid black;
+    border-radius: 4px;
+}
+
+#colorIndicatorRainbow {
+    background-image: linear-gradient(var(--gradient));
+    background-size: 100% auto;
+}
+
+#colorIndicatorRandom {
+    background-image: none;
+    background-color: var(--random-btn-hsl);
+}
