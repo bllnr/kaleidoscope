@@ -23,6 +23,10 @@ http.listen(port, () => {
 //It would be safer to connect it to a database as well so the data doesn't get destroyed when the server restarts
 //but we'll just use an object for simplicity.
 const positions = {};
+const sharedDataColor = {hue:0, saturation:0, lightness:0};
+const sharedDataRainbowStatus = {rainbowStatus:'Inactive'};
+const sharedDataBrushSize = {brushSize: 8};
+const sharedDataSymmetry = {symmetry: 20};
 
 //Socket configuration
 io.on("connection", (socket) => {
@@ -31,15 +35,38 @@ io.on("connection", (socket) => {
     //it includes the socket object from which you can get the id, 
     //useful for identifying each client
     console.log(`${socket.id} connected`);
-
+    
+    const randomColor = Array.from({ length: 6 }, () => "0123456789ABCDEF".charAt(Math.floor(Math.random() * 16))).join('');
+    
     //add a starting position when the client connects
+    //x, y are current positions
     //px, py are previous positions
-    positions[socket.id] = {x:0.5, y:0.5, px:0.5, py:0.5};
+    //isPressed to check/record if mouse is pressed to draw
+    //color to create cursors for different users
+    positions[socket.id] = {x:0.5, y:0.5, px:0.5, py:0.5, isPressed:false, color:randomColor};
 
     socket.on("disconnect", () => {
         // when this client disconnects, delete its position from the object
         delete positions[socket.id];
         console.log(`${socket.id} disconnected`);
+    });
+
+    socket.on('reconnect_attempt', (attempt) => {
+        console.log(`Reconnect attempt #${attempt}`);
+    });
+
+    socket.on('reconnect_error', (error) => {
+        console.error('Reconnect error:', error);
+    });
+
+    socket.on('reconnect_failed', () => {
+        console.error('Reconnect failed');
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+        console.log(`Reconnected successfully on attempt #${attemptNumber}`);
+        // Optionally, request the latest state if necessary
+        socket.emit('sharedDataColor');
     });
 
     //client can send message 'updatePosition' each time the clients position changes
@@ -48,11 +75,44 @@ io.on("connection", (socket) => {
         positions[socket.id].py = data.py; //previous position
         positions[socket.id].x = data.x;
         positions[socket.id].y = data.y;
+        positions[socket.id].isPressed = data.isPressed;
     });
+
+    socket.on("updateSharedDataColor", (data) => {
+        sharedDataColor.hue = data.hue;
+        sharedDataColor.saturation = data.saturation;
+        sharedDataColor.lightness = data.lightness;
+    });
+
+    socket.on("requestSharedDataColor", () => {
+        io.emit("sharedDataColor", sharedDataColor);
+    });
+
+    socket.on("updateSharedDataRainbowStatus", (data) => {
+        sharedDataRainbowStatus.rainbowStatus = data.rainbowStatus;
+    });
+
+    socket.on("updateSharedDataSymmetry", (data) => {
+        if(sharedDataSymmetry.symmetry != data.sharedDataSymmetry){
+            sharedDataSymmetry.symmetry = data.sharedDataSymmetry;
+            io.emit("sharedDataSymmetry", sharedDataSymmetry);
+        }
+    });
+
+    socket.on("updateSharedDataBrushSize", (data) => {
+        if(sharedDataBrushSize.brushSize !== data.sharedDataBrushSize){
+            sharedDataBrushSize.brushSize = data.sharedDataBrushSize;
+            io.emit("sharedDataBrushSize", sharedDataBrushSize);
+        } 
+    });
+
 });
 
 //send position every framerate to each client
-const frameRate = 300;
+const frameRate = 30;
 setInterval(() => {
+    // send shared data to all users
     io.emit("positions", positions);
+    io.emit("sharedDataColor", sharedDataColor);
+    io.emit("sharedDataRainbowStatus", sharedDataRainbowStatus);
 }, 1000/frameRate);
