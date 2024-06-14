@@ -42,6 +42,13 @@ let scaleMystic;
 let mysticColors;
 let mysticColorsFull;
 
+// mouse positions for all users
+let positions = {}; 
+
+// previous mouse positions
+let xPosPrevious = 0;
+let yPosPrevious = 0;
+
 const root = document.documentElement;
 const sketchContainer = document.getElementById("sketch-container");
 
@@ -56,12 +63,6 @@ const socket = io({
 });
 
 const sketch = (p5) => {
-    // mouse positions for all users
-    let positions = {}; 
-    
-    // previous mouse positions
-    let xPosPrevious = 0;
-    let yPosPrevious = 0;
 
     p5.setup = () => { 
         const containerPos = sketchContainer.getBoundingClientRect();
@@ -87,7 +88,7 @@ const sketch = (p5) => {
 
             //only run at the first session connected
             if(hue == 0 && saturation == 0 && lightness == 0){
-                console.log('initiate color')
+                //console.log('initiate color')
                 setRandomColor();
             }
         });
@@ -123,26 +124,9 @@ const sketch = (p5) => {
             console.log("Window size changed");
         });
 
-        function checkWindowFocus(){
-            //console.log(document.hasFocus())
-            if (document.hasFocus() && hasFocusHistory) {
-                //console.log('✅ window has focus');
-              } 
-            else if(document.hasFocus() && hasFocusHistory == false) {
-                //console.log("♻️ regained focus")
-                hasFocusHistory = true;
-              }
-            else if(document.hasFocus() && hasFocusHistory == undefined) {
-                //console.log("➕ new session, window has focus")
-                hasFocusHistory = true;
-              }
-            else if(!document.hasFocus()){
-                //console.log('⛔️ window does NOT have focus');
-                hasFocusHistory = false;
-            }
-        }
+        window.addEventListener("focus", (event) => {checkWindowFocus()}); //when gets focus
 
-        setInterval(checkWindowFocus, 1500);
+        window.addEventListener("blur", (event) => {checkWindowFocus()}); //when loses focus
 
         function setupUI() {
             topContainer = p5.createDiv();
@@ -369,13 +353,14 @@ const sketch = (p5) => {
         //socket.emit("requestSharedDataColor");
         
         // move the coordinate system origin to the center of the canvas
-        console.log('width', Math.round(canvasWidth), Math.round(p5.width), 'height', Math.round(canvasHeight), Math.round(p5.height));
         centerPointX = p5.width / 2;
         centerPointY = p5.height / 2;
         p5.translate(centerPointX, centerPointY);
 
         //scale so that the drawings are relatively the same size for different windows
-        p5.scale(p5.width/500, p5.height/500);
+        //solution below makes the cursor not follow the currently drawn position very well
+        //scaleSize = 500;
+        //p5.scale(p5.width/scaleSize, p5.height/scaleSize);
 
         //update mouse positions at every frame
         socket.emit("updatePosition", {
@@ -392,6 +377,14 @@ const sketch = (p5) => {
             determineRainbowOutput();
         };
 
+        updateSharedDataColor(hue, saturation, lightness);
+        /*
+        if(checkWindowFocus()){
+            console.log('update color')
+            updateSharedDataColor(hue, saturation, lightness);
+        }
+        */
+
         //for every position (each user)
         for (const id in positions) {
             const position = positions[id];
@@ -401,11 +394,14 @@ const sketch = (p5) => {
         
             // update symmetry to current value of dropdown
             symmetry = symmetryDropdown.selected();
-            
+
             // check that the mouse is inside the canvas, and that the mouse was also previously on the canvas
             //console.log(position.x, position.y, position.px, position.py);
-            if (position.isPressed && position.x > -p5.width && position.x < p5.width && position.y > -p5.height && position.y < p5.height &&
-                position.px > -p5.width && position.px < p5.width && position.py > -p5.height && position.py < p5.height) {
+            if (position.isPressed 
+                && -p5.width/2 <= position.x <= p5.width/2
+                && -p5.height/2 <= position.y <= p5.height/2
+                && -p5.width/2 <= position.px <= p5.width/2
+                && -p5.height/2 <= position.py <= p5.height/2) {
 
                 angle = 360 / symmetry;
                 for (let i = 0; i < symmetry; i++) {
@@ -413,8 +409,8 @@ const sketch = (p5) => {
     
                     p5.strokeWeight(brushSize);
                     
-                    //console.log("stroke", id, hue, saturation, lightness);
                     p5.stroke(hue, saturation, lightness);
+                    
                     // Send data to server
                     updateSharedDataColor(hue, saturation, lightness);
                     
@@ -491,3 +487,26 @@ function updateSharedDataBrushSize(){
         sharedDataBrushSize: sizeSlider.value(),
     });
 };
+
+function checkWindowFocus(){
+    //console.log(document.hasFocus())
+    if (document.hasFocus() && hasFocusHistory) {
+        console.log('✅ window has focus');
+        return true;
+      } 
+    else if(document.hasFocus() && hasFocusHistory == false) {
+        console.log("♻️ regained focus")
+        hasFocusHistory = true;
+        return true;
+      }
+    else if(document.hasFocus() && hasFocusHistory == undefined) {
+        console.log("➕ new session, window has focus")
+        hasFocusHistory = true;
+        return true;
+      }
+    else if(!document.hasFocus()){
+        console.log('⛔️ window does NOT have focus');
+        hasFocusHistory = false;
+        return false;
+    }
+}
