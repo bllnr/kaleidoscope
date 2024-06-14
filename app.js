@@ -31,19 +31,22 @@ const sharedDataSymmetry = {symmetry: 20};
 //Socket configuration
 io.on("connection", (socket) => {
     //each time someone visits the site and connect to socket.io 
-    //this function  gets called
+    //this function gets called
     //it includes the socket object from which you can get the id, 
     //useful for identifying each client
     console.log(`${socket.id} connected`);
-    
-    const randomColor = Array.from({ length: 6 }, () => "0123456789ABCDEF".charAt(Math.floor(Math.random() * 16))).join('');
+
+    io.emit("sharedDataColor", sharedDataColor);
+    io.emit("sharedDataRainbowStatus", sharedDataRainbowStatus);
+    io.emit("sharedDataSymmetry", sharedDataSymmetry);
+    io.emit("sharedDataBrushSize", sharedDataBrushSize);
     
     //add a starting position when the client connects
     //x, y are current positions
     //px, py are previous positions
     //isPressed to check/record if mouse is pressed to draw
     //color to create cursors for different users
-    positions[socket.id] = {x:0.5, y:0.5, px:0.5, py:0.5, isPressed:false, color:randomColor};
+    positions[socket.id] = {x:0.5, y:0.5, px:0.5, py:0.5, isPressed:false};
 
     socket.on("disconnect", () => {
         // when this client disconnects, delete its position from the object
@@ -79,9 +82,13 @@ io.on("connection", (socket) => {
     });
 
     socket.on("updateSharedDataColor", (data) => {
-        sharedDataColor.hue = data.hue;
-        sharedDataColor.saturation = data.saturation;
-        sharedDataColor.lightness = data.lightness;
+        // only update and make other clients update if the color is different from before
+        if(sharedDataColor.hue != data.hue || sharedDataColor.saturation != data.saturation || sharedDataColor.lightness != data.lightness){
+            sharedDataColor.hue = data.hue;
+            sharedDataColor.saturation = data.saturation;
+            sharedDataColor.lightness = data.lightness;
+            io.emit("sharedDataColor", sharedDataColor);
+        }
     });
 
     socket.on("requestSharedDataColor", () => {
@@ -93,6 +100,7 @@ io.on("connection", (socket) => {
     });
 
     socket.on("updateSharedDataSymmetry", (data) => {
+        // only update and send out data if actually changed
         if(sharedDataSymmetry.symmetry != data.sharedDataSymmetry){
             sharedDataSymmetry.symmetry = data.sharedDataSymmetry;
             io.emit("sharedDataSymmetry", sharedDataSymmetry);
@@ -100,6 +108,7 @@ io.on("connection", (socket) => {
     });
 
     socket.on("updateSharedDataBrushSize", (data) => {
+        // only update and send out data if actually changed
         if(sharedDataBrushSize.brushSize !== data.sharedDataBrushSize){
             sharedDataBrushSize.brushSize = data.sharedDataBrushSize;
             io.emit("sharedDataBrushSize", sharedDataBrushSize);
@@ -109,7 +118,7 @@ io.on("connection", (socket) => {
 });
 
 //send position every framerate to each client
-const frameRate = 30;
+const frameRate = 60;
 setInterval(() => {
     // send shared data to all users
     io.emit("positions", positions);
