@@ -23,13 +23,28 @@
     --gradient-reverse: .25turn, var(--g0), var(--g1), var(--g2), var(--g3), var(--g4), var(--g5), var(--g6), var(--g7);
 }
 
-body{
+body {
     display: flex;
     justify-content: center;
     align-items: center;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-
 }
+
+@media (max-aspect-ratio: 0.7) {
+    #topContainer {
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+    }
+  }
+
+@media (min-aspect-ratio: 0.7) {
+    #topContainer {
+        display: flex;
+        flex-direction: row;
+        padding: 10px;
+    }
+  }
 
 button {
     margin: 4px;
@@ -38,12 +53,6 @@ button {
 #sketch-container {
     width: 100vmin; /*% of the smallest side of the viewport*/
     height: 100vmin;
-}
-
-#topContainer {
-    display: flex;
-    flex-direction: row;
-    padding: 10px;
 }
 
 #canvas {

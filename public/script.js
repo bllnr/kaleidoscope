@@ -6,6 +6,8 @@ let symmetryLabel, brushSizeLabel, brushSizeValueLabel;
 let symmetryDropdown;
 let brushSizeSlider;
 
+let hasFocusHistory;
+
 let mouse = {
     x: 0,
     y: 0,
@@ -13,15 +15,18 @@ let mouse = {
 };
 
 // parameters for drawing
+let canvasWidth;
+let canvasHeight;
 let symmetry; // Symmetry - number of reflections   
 let angle;
 let outputColor;
-let hue = Math.random() * 360;
-let saturation = (Math.random()*80) + 20; // remove colors that look too samey
-let lightness = (Math.random()*60) + 35;
+let hue;
+let saturation; // remove colors that look too samey
+let lightness;
 let rainbowStatus = 'Inactive';
 let colorIndex = 0;
 let brushSize = 8;
+let pg;
 
 // color gradients
 let scaleTrueRainbow;
@@ -50,7 +55,7 @@ const socket = io({
     randomizationFactor: 0.5
 });
 
-const sketch = (p) => {
+const sketch = (p5) => {
     // mouse positions for all users
     let positions = {}; 
     
@@ -58,32 +63,33 @@ const sketch = (p) => {
     let xPosPrevious = 0;
     let yPosPrevious = 0;
 
-    p.setup = () => { 
+    p5.setup = () => { 
         const containerPos = sketchContainer.getBoundingClientRect();
-        const canvas = p.createCanvas(containerPos.width*0.75, containerPos.width*0.75);
+        canvasWidth = Math.min(containerPos.width, containerPos.height)*0.75;
+        canvasHeight = canvasWidth;
+        const canvas = p5.createCanvas(canvasWidth, canvasHeight);
         canvas.id('canvas');
 
-        p.angleMode(p.DEGREES);
-        p.colorMode(p.HSL);
-        p.background(60, 3, 97);
+        p5.angleMode(p5.DEGREES);
+        p5.colorMode(p5.HSL);
+        p5.background(60, 3, 97);
+        p5.frameRate(60); // framerate same as the server
     
-        setupUI();
-    
-        prepareColorScales();
-        setRandomColor();
-
-        // send shared color data to all users
-        updateSharedDataColor(hue, saturation, lightness);
-
-        p.frameRate(30); // framerate same as the server
+        setupUI(); // UI elements
+        prepareColorScales(); //gradients
 
         socket.on("sharedDataColor", (data) => {
             // get the data from the server to continually update the color
-            //console.log("colors", hue, saturation, lightness);
-            //console.log("data", data.hue, data.saturation, data.lightness);
+            //console.log('sharedDataColor', data.hue, data.saturation, data.lightness);
             hue = data.hue;
             saturation = data.saturation;
             lightness = data.lightness;
+
+            //only run at the first session connected
+            if(hue == 0 && saturation == 0 && lightness == 0){
+                console.log('initiate color')
+                setRandomColor();
+            }
         });
 
         socket.on("sharedDataRainbowStatus", (data) => {
@@ -113,83 +119,86 @@ const sketch = (p) => {
             symmetryDropdown.selected(symmetry);
         });
 
-        // Throttle updates when the window is not visible
-        let updateInterval;
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                console.log("Document hidden")
-                clearInterval(updateInterval);
-            } else {
-                console.log("Document visible")
-                updateInterval = setInterval(() => {
-                    socket.emit("requestSharedDataColor");
-                }, 1000 / 30);
-            }
+        window.addEventListener("resize", () => {
+            console.log("Window size changed");
         });
 
-        // Start sending updates immediately if the window is visible
-        if (!document.hidden) {
-            console.log("Document visible 2")
-            updateInterval = setInterval(() => {
-                socket.emit("requestSharedDataColor");
-            }, 1000 / 30);
+        function checkWindowFocus(){
+            //console.log(document.hasFocus())
+            if (document.hasFocus() && hasFocusHistory) {
+                //console.log('✅ window has focus');
+              } 
+            else if(document.hasFocus() && hasFocusHistory == false) {
+                //console.log("♻️ regained focus")
+                hasFocusHistory = true;
+              }
+            else if(document.hasFocus() && hasFocusHistory == undefined) {
+                //console.log("➕ new session, window has focus")
+                hasFocusHistory = true;
+              }
+            else if(!document.hasFocus()){
+                //console.log('⛔️ window does NOT have focus');
+                hasFocusHistory = false;
+            }
         }
 
+        setInterval(checkWindowFocus, 1500);
+
         function setupUI() {
-            topContainer = p.createDiv();
+            topContainer = p5.createDiv();
             topContainer.id('topContainer');
 
-            controlsContainer = p.createDiv();
+            controlsContainer = p5.createDiv();
             controlsContainer.id('controlsContainer');
 
-            colorControlsContainer = p.createDiv();
+            colorControlsContainer = p5.createDiv();
             colorControlsContainer.id('colorControlsContainer');
 
-            symmetryControlsContainer = p.createDiv();
+            symmetryControlsContainer = p5.createDiv();
             symmetryControlsContainer.id('symmetryControlsContainer');
 
-            brushControlsContainer = p.createDiv();
+            brushControlsContainer = p5.createDiv();
             brushControlsContainer.id('brushControlsContainer');
 
-            fileControlsContainer = p.createDiv();
+            fileControlsContainer = p5.createDiv();
             fileControlsContainer.id('fileControlsContainer');
 
-            saveButton = p.createButton('Save');
+            saveButton = p5.createButton('Save');
             saveButton.mousePressed(saveFile);
 
-            clearButton = p.createButton('Clear Drawing');
+            clearButton = p5.createButton('Clear Drawing');
             clearButton.mousePressed(clearScreen);
 
-            rainbowButton = p.createButton('Rainbow Mode');
+            rainbowButton = p5.createButton('Rainbow Mode');
             rainbowButton.mousePressed(toggleRainbowMode);
             rainbowButton.id('rainbowButton');
 
-            colorIndicator = p.createDiv();
+            colorIndicator = p5.createDiv();
             colorIndicator.class('colorIndicator');
 
-            randomColorButton = p.createButton('Random Color');
+            randomColorButton = p5.createButton('Random Color');
             randomColorButton.mousePressed(setRandomColor);
             randomColorButton.id('randomColorButton');
 
             // Dropdown for degrees of symmetry
-            symmetryLabel = p.createSpan('Symmetry: ');
-            symmetryDropdown = p.createSelect('Symmetry');
+            symmetryLabel = p5.createSpan('Symmetry: ');
+            symmetryDropdown = p5.createSelect('Symmetry');
             symmetryDropdown.option(6);
             symmetryDropdown.option(8);
             symmetryDropdown.option(12);
             symmetryDropdown.option(20);
 
             // Set default value for dropdown
-            symmetryDropdown.selected(symmetry);
-            symmetryDropdown.changed(updateSharedDataSymmetry);
+            symmetryDropdown.selected(20);
+            symmetryDropdown.changed(updateSharedDataSymmetry); //event listener
 
             // The slider controls the thickness of the brush
-            brushSizeLabel = p.createSpan('Brush Size');
-            sizeSlider = p.createSlider(1, 32, brushSize, 1);
-            sizeSlider.changed(updateSharedDataBrushSize);
+            brushSizeLabel = p5.createSpan('Brush Size');
+            sizeSlider = p5.createSlider(1, 32, brushSize, 1);
+            sizeSlider.changed(updateSharedDataBrushSize); //event listener
 
             // Label which shows the current value of slider
-            brushSizeValueLabel = p.createSpan('');
+            brushSizeValueLabel = p5.createSpan('');
             brushSizeValueLabel.id('brushSizeValueLabel');
             brushSizeValueLabel.html(sizeSlider.value());
 
@@ -214,7 +223,6 @@ const sketch = (p) => {
             saveButton.parent('fileControlsContainer');
             clearButton.parent('fileControlsContainer');
         }
-
     };
     
     function prepareColorScales() {
@@ -267,12 +275,12 @@ const sketch = (p) => {
     
     // Save File Function
     function saveFile() {
-      p.save('kaleidoscope.png');
+      p5.save('kaleidoscope.png');
     }
     
     // Clear Screen function
     function clearScreen() {
-        p.background(60, 3, 97)
+        p5.background(60, 3, 97)
     }
     
     function toggleRainbowMode(){
@@ -355,70 +363,68 @@ const sketch = (p) => {
     }
     
     //runs at every frame
-    p.draw = () => {
-        
-        
+    p5.draw = () => {
 
+        //request the color to keep drawings in sync on color
+        //socket.emit("requestSharedDataColor");
+        
         // move the coordinate system origin to the center of the canvas
-        centerPointX = p.width / 2;
-        centerPointY = p.height / 2;
-        p.translate(centerPointX, centerPointY);
+        console.log('width', Math.round(canvasWidth), Math.round(p5.width), 'height', Math.round(canvasHeight), Math.round(p5.height));
+        centerPointX = p5.width / 2;
+        centerPointY = p5.height / 2;
+        p5.translate(centerPointX, centerPointY);
+
+        //scale so that the drawings are relatively the same size for different windows
+        p5.scale(p5.width/500, p5.height/500);
 
         //update mouse positions at every frame
         socket.emit("updatePosition", {
-            x: p.mouseX - p.width / 2, // always send relative number of position between 0 and 1
-            y: p.mouseY - p.height/ 2, //so the positions are the relatively the same on different screen sizes.
+            x: p5.mouseX - p5.width / 2, // always send relative number of position between 0 and 1
+            y: p5.mouseY - p5.height/ 2, //so the positions are the relatively the same on different screen sizes.
             px: xPosPrevious,
             py: yPosPrevious,
-            isPressed: p.mouseIsPressed
+            isPressed: p5.mouseIsPressed
         });
-        xPosPrevious = p.mouseX - p.width / 2; 
-        yPosPrevious = p.mouseY - p.height / 2;
+        xPosPrevious = p5.mouseX - p5.width / 2; 
+        yPosPrevious = p5.mouseY - p5.height / 2;
 
         if(rainbowStatus != 'Inactive'){
             determineRainbowOutput();
-
-            // Send data to server
-            updateSharedDataColor(hue, saturation, lightness);
         };
 
         //for every position (each user)
         for (const id in positions) {
             const position = positions[id];
-        
 
             // update the brush size slider label
-            brushSizeValueLabel.html(sizeSlider.value());
+            brushSizeValueLabel.html(brushSize);
         
             // update symmetry to current value of dropdown
             symmetry = symmetryDropdown.selected();
             
             // check that the mouse is inside the canvas, and that the mouse was also previously on the canvas
             //console.log(position.x, position.y, position.px, position.py);
-            if (position.x > 0 && position.x < p.width && position.y > 0 && position.y < p.height &&
-                position.px > 0 && position.px < p.width && position.py > 0 && position.py < p.height) {
+            if (position.isPressed && position.x > -p5.width && position.x < p5.width && position.y > -p5.height && position.y < p5.height &&
+                position.px > -p5.width && position.px < p5.width && position.py > -p5.height && position.py < p5.height) {
 
-                if(position.isPressed) {
-                    angle = 360 / symmetry;
-                    for (let i = 0; i < symmetry; i++) {
-                        p.rotate(angle); //rotate the coordinate system based on chosen symmetry
-        
-                        p.strokeWeight(sizeSlider.value());
-                        
-                        // request the color to keep drawings in sync on color
-                        //socket.emit("requestSharedDataColor");
-                        
-                        //console.log("stroke", id, hue, saturation, lightness);
-                        p.stroke(hue, saturation, lightness);
-                        
-                        // draw line
-                        p.line(position.x, position.y, position.px, position.py);
-        
-                        p.push(); // begin a drawing group
-                        p.scale(1, -1); //scale the coordinate system (mirror along the y-axis)
-                        p.line(position.x, position.y, position.px, position.py); // draw in the mirrored coordinate sytem
-                        p.pop(); //end drawing group
-                    };
+                angle = 360 / symmetry;
+                for (let i = 0; i < symmetry; i++) {
+                    p5.rotate(angle); //rotate the coordinate system based on chosen symmetry
+    
+                    p5.strokeWeight(brushSize);
+                    
+                    //console.log("stroke", id, hue, saturation, lightness);
+                    p5.stroke(hue, saturation, lightness);
+                    // Send data to server
+                    updateSharedDataColor(hue, saturation, lightness);
+                    
+                    // draw line
+                    p5.line(position.x, position.y, position.px, position.py);
+    
+                    p5.push(); // begin a drawing group
+                    p5.scale(1, -1); //scale the coordinate system (mirror along the y-axis)
+                    p5.line(position.x, position.y, position.px, position.py); // draw in the mirrored coordinate sytem
+                    p5.pop(); //end drawing group
                 };
             };
         };   
